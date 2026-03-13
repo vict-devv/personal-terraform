@@ -28,6 +28,13 @@ resource "aws_cloudfront_distribution" "distribution" {
     max_ttl                = 86400
   }
 
+  custom_error_response {
+    error_code            = 403
+    response_code         = 404
+    response_page_path    = "/error.html"
+    error_caching_min_ttl = 10
+  }
+
   viewer_certificate {
     acm_certificate_arn      = var.acm_certificate_arn
     ssl_support_method       = "sni-only"
