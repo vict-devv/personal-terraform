@@ -11,8 +11,8 @@ resource "aws_s3_bucket_public_access_block" "public_access_block" {
   restrict_public_buckets = !var.is_public
 }
 
-resource "aws_s3_bucket_policy" "bucket_policy" {
-  count  = var.is_public ? 1 : 0
+resource "aws_s3_bucket_policy" "public_bucket_policy" {
+  count  = var.is_public && !var.is_cloudfront_origin ? 1 : 0
   bucket = aws_s3_bucket.bucket.id
 
   depends_on = [aws_s3_bucket_public_access_block.public_access_block]
@@ -29,6 +29,12 @@ resource "aws_s3_bucket_policy" "bucket_policy" {
       }
     ]
   })
+}
+
+resource "aws_s3_bucket_policy" "cloudfront_bucket_policy" {
+  count  = var.is_cloudfront_origin ? 1 : 0
+  bucket = aws_s3_bucket.bucket.id
+  policy = var.cloudfront_bucket_policy_json
 }
 
 resource "aws_s3_bucket_website_configuration" "website_configuration" {

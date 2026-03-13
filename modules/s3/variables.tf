@@ -26,3 +26,14 @@ variable "website_documents_path" {
   type        = string
   default     = "./documents"
 }
+
+variable "is_cloudfront_origin" {
+  description = "Whether the S3 bucket will be used as an origin for a CloudFront distribution"
+  type        = bool
+  default     = false
+}
+
+variable "cloudfront_bucket_policy_json" {
+  description = "The IAM policy document for the CloudFront access to the S3 bucket"
+  type        = any
+}
