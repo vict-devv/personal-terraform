@@ -1,282 +1,182 @@
-# 🌐 Personal Portfolio Infrastructure
+# Personal Portfolio Infrastructure
 
-A modern, Infrastructure-as-Code solution for deploying a personal portfolio website on AWS using Terraform. This project provisions and manages cloud resources including S3 static hosting, Route53 DNS, and automated content deployment.
+Terraform project that provisions a secure static portfolio stack on AWS using S3 + CloudFront + Route53 + ACM.
 
-## ✨ Features
+The website content is stored in S3, served through CloudFront, and exposed over HTTPS with an ACM certificate.
 
-- **🪣 S3 Static Website Hosting** - Fast, scalable, and cost-effective static website hosting
-- **🔗 Route53 DNS Management** - Automated DNS records pointing to your S3 website
-- **📝 Infrastructure as Code** - Fully reproducible infrastructure using Terraform
-- **🤖 Auto-Upload Documents** - Automatically synchronize portfolio content to S3
-- **🔐 Secure Backend** - Terraform state stored encrypted in S3
-- **📦 Modular Architecture** - Reusable, well-organized Terraform modules
-- **🌍 Multi-Region Support** - Easily deployable to different AWS regions
+## Features
 
-## 📁 Project Structure
+- HTTPS-enabled delivery through CloudFront
+- Private S3 bucket used as CloudFront origin (not public website hosting)
+- Origin Access Control (OAC) policy between CloudFront and S3
+- Automatic upload of portfolio assets (`index.html`, `error.html`, and favicon)
+- Route53 hosted zone and DNS alias to CloudFront
+- ACM certificate with DNS validation in `us-east-1` (required for CloudFront)
+- Remote Terraform state stored in S3 backend
+
+## Architecture
+
+```
+Internet User
+      |
+      v
+Route53 (A alias: www.domain)
+      |
+      v
+CloudFront Distribution (HTTPS, redirect HTTP -> HTTPS)
+      |
+      v
+S3 Bucket (private origin)
+```
+
+## Project Structure
 
 ```
 personal-terraform/
-├── main.tf                 # Root module configuration
-├── variables.tf            # Input variables
-├── providers.tf            # AWS provider configuration
-├── terraform.tfvars        # Variable values
-├── backend.tf              # Terraform state configuration
-│
+├── backend.tf
+├── main.tf
+├── providers.tf
+├── terraform.tfvars
+├── variables.tf
 ├── modules/
-│   ├── s3/
-│   │   ├── main.tf         # S3 bucket and website configuration
-│   │   ├── variables.tf    # S3 module variables
-│   │   └── outputs.tf      # S3 module outputs
-│   │
-│   └── route53/
-│       ├── main.tf         # Route53 hosted zone and records
-│       ├── variables.tf    # Route53 module variables
-│       └── outputs.tf      # Route53 module outputs
-│
+│   ├── acm/
+│   ├── cloudfront/
+│   ├── route53/
+│   └── s3/
 └── portfolio/
-    └── pages/
-        ├── index.html      # Homepage
-        └── error.html      # Error page (404, etc.)
+      ├── favicon/
+      │   └── favicon.png
+      └── pages/
+            ├── error.html
+            └── index.html
 ```
 
-## 🚀 Quick Start
+## Modules
 
-### Prerequisites
+### `s3`
 
-- **Terraform** ~> 1.14
-- **AWS CLI** configured with appropriate credentials
-- **AWS Account** with permissions to create S3 buckets, Route53 zones, and other resources
+- Creates the content bucket (`www.<domain>`)
+- Uploads portfolio assets when enabled
+- Keeps bucket private for CloudFront origin mode
+- Applies CloudFront-origin bucket policy when provided
 
-### Installation & Deployment
+Key options currently used:
+- `is_public = false`
+- `is_portfolio_website = false`
+- `is_cloudfront_origin = true`
+- `auto_upload_documents = true`
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd personal-terraform
-   ```
+### `cloudfront`
 
-2. **Initialize Terraform**
-   ```bash
-   terraform init
-   ```
+- Creates the CloudFront distribution with S3 origin
+- Configures OAC for signed access to S3
+- Forces HTTPS via `viewer_protocol_policy = "redirect-to-https"`
+- Uses custom ACM certificate
 
-3. **Review the plan**
-   ```bash
-   terraform plan
-   ```
+Key outputs:
+- Distribution domain name
+- Distribution hosted zone ID
+- Generated S3 bucket policy JSON for CloudFront access
 
-4. **Apply the configuration**
-   ```bash
-   terraform apply
-   ```
+### `acm`
 
-5. **Verify deployment**
-   - Check Route53 hosted zone in AWS Console
-   - Verify S3 bucket is created and website is accessible
-   - Test your domain is resolving correctly
+- Requests certificate for `*.${domain_name}`
+- Validates certificate via Route53 DNS records
+- Uses AWS provider alias in `us-east-1`
 
-## 🔧 Configuration
+### `route53`
 
-### Variables
+- Creates hosted zone for root domain
+- Creates `www.<domain>` alias record to CloudFront
 
-Key variables you can customize:
+## Prerequisites
+
+- Terraform `~> 1.14`
+- AWS provider `~> 6.0`
+- AWS credentials with permissions for S3, CloudFront, Route53, ACM, and IAM policy updates
+- Domain that can use the Route53 name servers created by this project
+
+## Configuration
+
+Root variables:
 
 | Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `domain_name` | Your domain name for Route53 | - | ✅ Yes |
-| `aws_region` | AWS region for resource deployment | `ca-central-1` | ❌ No |
+|---|---|---|---|
+| `domain_name` | Root domain used for Route53 and `www` alias | none | Yes |
+| `aws_region` | Primary deployment region (S3/Route53) | `ca-central-1` | No |
 
-### Customization
-
-Edit `terraform.tfvars` to customize your deployment:
+Example `terraform.tfvars`:
 
 ```hcl
-domain_name = "your-domain.com"
-aws_region  = "us-east-1"  # or your preferred region
+domain_name = "vict-devv.com"
 ```
 
-### S3 Module Configuration
+## Deploy
 
-The S3 module supports several options:
-- `bucket_name` - Name of your S3 bucket
-- `is_public` - Make bucket publicly accessible (default: `false`)
-- `is_portfolio_website` - Enable website configuration (default: `false`)
-- `auto_upload_documents` - Auto-sync portfolio files (default: `false`)
-- `website_documents_path` - Path to portfolio files (default: `./portfolio`)
-
-## 📊 Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│              Your Domain (Route53)              │
-│           vict-devv.com / www.vict-devv.com    │
-└────────────────┬────────────────────────────────┘
-                 │ A Record (Alias)
-                 ▼
-        ┌────────────────────┐
-        │  Route53 Hosted    │
-        │  Zone              │
-        └────────┬───────────┘
-                 │ Alias Target
-                 ▼
-        ┌────────────────────────┐
-        │  S3 Bucket             │
-        │  Static Website        │
-        │  (index.html, etc.)    │
-        └────────────────────────┘
-```
-
-## 🔐 Security & Best Practices
-
-✅ **Implemented:**
-- S3 public access block management
-- Encrypted Terraform state storage
-- IAM bucket policy for public website access
-- Error page handling (404 redirects)
-
-📋 **Recommendations:**
-- Use AWS Secrets Manager for sensitive data
-- Enable S3 versioning for content backup
-- Consider CloudFront CDN for global distribution
-- Implement AWS WAF for additional protection
-- Enable access logging for audit trails
-
-## 🛠️ Terraform Backend Setup
-
-This project uses an S3 backend to store Terraform state securely:
-
-```hcl
-bucket  = "victor-devops-tfstate-bucket"
-key     = "personal/terraform.tfstate"
-region  = "ca-central-1"
-encrypt = true
-```
-
-**Note:** The backend bucket must exist before running `terraform init`. Create it with:
 ```bash
-aws s3 mb s3://victor-devops-tfstate-bucket --region ca-central-1
-aws s3api put-bucket-versioning \
-  --bucket victor-devops-tfstate-bucket \
-  --versioning-configuration Status=Enabled
+terraform init
+terraform plan
+terraform apply
 ```
 
-## 📚 Modules
+After apply:
+- Update your registrar name servers with Route53 output values (if not already delegated)
+- Wait for DNS and ACM validation to finish
+- Visit `https://www.<your-domain>`
 
-### S3 Module
-Manages S3 bucket configuration for static website hosting:
-- Creates versioning-enabled bucket
-- Configures public access policies
-- Sets up website configuration (index & error docs)
-- Auto-uploads portfolio content
+## Content Updates
 
-**Outputs:**
-- `bucket_id` - S3 bucket identifier
-- `bucket_name` - S3 bucket name
-- `bucket_hosted_zone_id` - Hosted zone ID for Route53 alias
+Update files under `portfolio/` and run:
 
-### Route53 Module
-Manages DNS configuration:
-- Creates hosted zone for your domain
-- Sets up A record pointing to S3 website
-- Supports www subdomain alias
-
-**Outputs:**
-- `zone_id` - Route53 hosted zone ID
-- `nameservers` - Route53 nameservers (for domain registrar)
-
-## 💡 Usage Examples
-
-### Deploy to a Different AWS Region
-```bash
-terraform apply -var="aws_region=us-west-2"
-```
-
-### Update Portfolio Content
-Simply update files in `portfolio/pages/` and reapply:
 ```bash
 terraform apply
 ```
 
-The S3 module will automatically sync changes.
+Terraform updates S3 objects using `etag = filemd5(...)`, so changed files are uploaded automatically.
 
-### Remove All Resources
+## Backend State
+
+Terraform state is configured in S3 backend:
+
+```hcl
+backend "s3" {
+   bucket       = "victor-devops-tfstate-bucket"
+   key          = "personal/terraform.tfstate"
+   region       = "ca-central-1"
+   use_lockfile = true
+   encrypt      = true
+}
+```
+
+Ensure the backend bucket already exists before `terraform init`.
+
+## Troubleshooting
+
+### HTTPS certificate not issued yet
+
+- Check ACM certificate status in `us-east-1`
+- Confirm DNS validation records exist in Route53
+- Allow propagation time
+
+### Site returns AccessDenied
+
+- Confirm S3 bucket is private (`is_public = false`)
+- Confirm CloudFront OAC policy is applied to the bucket
+- Re-run `terraform apply` to reconcile policy drift
+
+### Domain not resolving to CloudFront
+
+- Verify Route53 NS delegation at your registrar
+- Confirm `www` alias record targets CloudFront domain
+
+## Destroy
+
 ```bash
 terraform destroy
 ```
 
-## 📝 Outputs
+## Useful References
 
-After deployment, key information will be displayed:
-
-```
-s3_bucket_name = "www.vict-devv.com"
-s3_website_url = "http://www.vict-devv.com.s3-website.ca-central-1.amazonaws.com"
-route53_zone_id = "Z1234567890ABC"
-```
-
-## 🔄 CI/CD Integration
-
-This infrastructure can be integrated with CI/CD pipelines (GitHub Actions, GitLab CI, etc.):
-
-```yaml
-- name: Deploy Infrastructure
-  run: |
-    terraform init
-    terraform plan -out=tfplan
-    terraform apply tfplan
-```
-
-## 🐛 Troubleshooting
-
-**S3 website not accessible:**
-- Verify `is_public` and `is_portfolio_website` are set to `true`
-- Check bucket policy allows public read access
-- Ensure index.html and error.html are uploaded
-
-**DNS not resolving:**
-- Verify Route53 hosted zone nameservers are set at your domain registrar
-- Wait for DNS propagation (can take up to 48 hours)
-- Use `dig` or `nslookup` to verify records
-
-**Terraform state lock error:**
-- Check S3 backend bucket exists and is accessible
-- Verify encryption settings in backend configuration
-- Use `terraform force-unlock` if needed (use with caution)
-
-## 📦 Dependencies
-
-- **Terraform**: ~> 1.14
-- **AWS Provider**: ~> 6.0
-- **AWS Account** with appropriate permissions
-- **AWS CLI** (for backend setup)
-
-## 🎯 Next Steps
-
-Enhance your infrastructure with:
-- [ ] Add CloudFront CDN for global distribution
-- [ ] Implement SSL/TLS certificate management (ACM)
-- [ ] Set up monitoring and logging
-- [ ] Add automated backups
-- [ ] Implement disaster recovery strategy
-- [ ] Add custom domain SSL certificate
-
-## 📖 Resources
-
-- [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS S3 Static Website Hosting](https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html)
-- [Route53 DNS Management](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/Welcome.html)
-- [Terraform Best Practices](https://developer.hashicorp.com/terraform/cloud-docs/recommended-practices)
-
-## 📄 License
-
-This project is open source. Feel free to adapt it for your own use.
-
-## 👤 Author
-
-Created and maintained for personal portfolio infrastructure.
-
----
-
-**Last Updated:** March 2026
-
-For questions or improvements, feel free to contribute or create an issue!
+- Terraform AWS Provider Docs: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+- CloudFront with S3 origin and OAC: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
+- ACM for CloudFront (us-east-1): https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html
