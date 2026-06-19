@@ -270,51 +270,7 @@
           <span class="mr-4 text-sky-400">02.</span> Featured Projects
         </h2>
         <div class="grid md:grid-cols-2 gap-6">
-          <div class="card p-6 rounded-xl">
-            <h3 class="text-lg font-bold mb-2 text-sky-400">
-              Infinite Front-End Testing Environments
-            </h3>
-            <p class="text-sm text-slate-400 mb-4">
-              CI/CD workflows with GitHub Actions enabling unique URLs per
-              feature branch for unlimited parallel testing environments —
-              saving 1 day per deployment and accelerating release cycles by
-              50%. Owned end-to-end AWS setup (S3, CloudFront, Lambda Edge,
-              Route53).
-            </p>
-            <div class="text-xs font-mono text-slate-500">
-              AWS • Lambda Edge • Route53 • CloudFront • GitHub Actions
-            </div>
-          </div>
-          <div class="card p-6 rounded-xl">
-            <h3 class="text-lg font-bold mb-2 text-sky-400">
-              High-Scale Cloud Architecture Migration
-            </h3>
-            <p class="text-sm text-slate-400 mb-4">
-              Led migration from monolithic EC2 instances to serverless AWS ECS
-              Fargate with Elastic Load Balancers, doubling system capacity.
-              Designed full VPC networking, CloudWatch-driven auto-scaling, and
-              real-time stakeholder dashboards.
-            </p>
-            <div class="text-xs font-mono text-slate-500">
-              ECS Fargate • Terraform • VPC • CloudWatch
-            </div>
-          </div>
-          <div class="card p-6 rounded-xl">
-            <h3 class="text-lg font-bold mb-2 text-sky-400">
-              Smart Traffic Cameras Integration (AWS SAM)
-            </h3>
-            <p class="text-sm text-slate-400 mb-4">
-              Designed and implemented a REST API for smart camera management
-              handling 2,000+ events daily for access control and auditing.
-              Architected Lambda, ElastiCache, and EventBridge integration to
-              automate camera whitelist updates synced with MongoDB Atlas.
-            </p>
-            <div class="text-xs font-mono text-slate-500">
-              Go • SAM • Lambda • EventBridge • Redis • MongoDB
-            </div>
-          </div>
-
-          <!-- Linkr - full width -->
+          <!-- Linkr -->
           <div class="card p-6 rounded-xl md:col-span-2">
             <div
               class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-3"
@@ -343,6 +299,13 @@
                 >
                   <i class="fab fa-github"></i> link-tf
                 </a>
+                <a
+                  href="https://github.com/vict-devv/linkr-helm"
+                  target="_blank"
+                  class="flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-sky-400 border border-slate-700 hover:border-sky-500 rounded-md px-3 py-1.5 transition-colors"
+                >
+                  <i class="fab fa-github"></i> link-helm
+                </a>
               </div>
             </div>
             <p class="text-sm text-slate-400 mb-4">
@@ -361,10 +324,14 @@
               aggregated analytics (total clicks, daily trends, top referrers)
               for dashboards. Infrastructure is fully provisioned with Terraform
               on AWS EKS, with per-environment state (dev/prod) stored in S3.
+              Kubernetes deployments are managed via Helm Charts —
+              <span class="text-slate-300 font-medium">link-helm</span> contains
+              charts for all Go microservices as well as the EKS cluster platform
+              itself.
             </p>
             <div class="text-xs font-mono text-slate-500">
               Go • RabbitMQ • Redis • Postgres • MongoDB • Docker • AWS EKS •
-              Terraform • VPC
+              Terraform • Helm • VPC
             </div>
           </div>
         </div>
