@@ -20,7 +20,7 @@ The website content is stored in S3, served through CloudFront, and exposed over
 Internet User
       |
       v
-Route53 (A alias: www.domain)
+Route53 (A/AAAA alias: domain + www.domain)
       |
       v
 CloudFront Distribution (HTTPS, redirect HTTP -> HTTPS)
@@ -80,14 +80,14 @@ Key outputs:
 
 ### `acm`
 
-- Requests certificate for `*.${domain_name}`
+- Requests certificate for `*.${domain_name}` with `${domain_name}` as a SAN (covers the bare domain)
 - Validates certificate via Route53 DNS records
 - Uses AWS provider alias in `us-east-1`
 
 ### `route53`
 
 - Creates hosted zone for root domain
-- Creates `www.<domain>` alias record to CloudFront
+- Creates A and AAAA alias records for `<domain>` and `www.<domain>` pointing at CloudFront
 
 ## Prerequisites
 
@@ -122,7 +122,7 @@ terraform apply
 After apply:
 - Update your registrar name servers with Route53 output values (if not already delegated)
 - Wait for DNS and ACM validation to finish
-- Visit `https://www.<your-domain>`
+- Visit `https://<your-domain>` or `https://www.<your-domain>`
 
 ## Content Updates
 
