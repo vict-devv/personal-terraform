@@ -10,17 +10,18 @@ module "s3" {
 }
 
 module "acm" {
-  source          = "./modules/acm"
-  domain_name     = "*.${var.domain_name}"
-  route53_zone_id = module.route53.zone_id
+  source                    = "./modules/acm"
+  domain_name               = "*.${var.domain_name}"
+  subject_alternative_names = [var.domain_name]
+  route53_zone_id           = module.route53.zone_id
 }
 
 module "cloudfront" {
   source                      = "./modules/cloudfront"
   bucket_arn                  = module.s3.bucket_arn
   bucket_regional_domain_name = module.s3.bucket_regional_domain_name
-  acm_certificate_arn         = module.acm.cert_arn
-  dns_aliases                 = ["www.${var.domain_name}"]
+  acm_certificate_arn         = module.acm.validated_cert_arn
+  dns_aliases                 = [var.domain_name, "www.${var.domain_name}"]
 }
 
 module "route53" {
