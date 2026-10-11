@@ -33,8 +33,11 @@ S3 Bucket (private origin)
 
 ```
 personal-terraform/
+├── .github/workflows/terraform.yml
 ├── backend.tf
+├── docs/github-actions-aws-oidc.md
 ├── main.tf
+├── outputs.tf
 ├── providers.tf
 ├── terraform.tfvars
 ├── variables.tf
@@ -124,9 +127,19 @@ After apply:
 - Wait for DNS and ACM validation to finish
 - Visit `https://www.<your-domain>`
 
+## CI/CD
+
+GitHub Actions (`.github/workflows/terraform.yml`) runs Terraform for this repo:
+
+- **Pull requests to `main`**: `terraform fmt -check`, `validate` and `plan`. The plan is shown in the run's summary. Uses a read-only AWS role.
+- **Pushes to `main`** (and manual runs on `main`): `plan` then `apply`, followed by a CloudFront invalidation of `/*` so new content is served right away.
+
+AWS access uses GitHub OIDC, not stored keys. The one-time IAM and repository
+setup is in [docs/github-actions-aws-oidc.md](docs/github-actions-aws-oidc.md).
+
 ## Content Updates
 
-Update files under `portfolio/` and run:
+Update files under `portfolio/` and merge to `main`; CI applies the change and invalidates the CloudFront cache. Locally, the equivalent is:
 
 ```bash
 terraform apply

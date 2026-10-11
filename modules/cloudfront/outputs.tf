@@ -12,3 +12,8 @@ output "s3_bucket_policy" {
   description = "The IAM policy document for the CloudFront access to the S3 bucket"
   value       = data.aws_iam_policy_document.allow_access_from_cloudfront.json
 }
+
+output "distribution_id" {
+  description = "The ID of the CloudFront distribution"
+  value       = aws_cloudfront_distribution.distribution.id
+}
