@@ -1,0 +1,122 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one Terraform run against the shared state at a time. Queued runs wait
+# instead of cancelling, so an in-flight apply is never interrupted.
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # required to request the OIDC token for AWS
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
+  AWS_REGION: ca-central-1
+
+jobs:
+  validate:
+    name: Format and validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.14.0"
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform init (no backend)
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        run: terraform validate
+
+  plan:
+    name: Plan
+    needs: validate
+    # Skipped until the AWS role variables are configured (see docs/github-actions-aws-oidc.md).
+    if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.14.0"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (read-only plan role)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: terraform init
+        run: terraform init
+
+      - name: terraform plan
+        run: |
+          set -o pipefail
+          terraform plan -no-color -out=tfplan | tee plan.txt
+          {
+            echo "### Terraform plan"
+            echo '```'
+            grep -E '^(Plan:|No changes\.)' plan.txt || true
+            echo '```'
+            echo "<details><summary>Full plan</summary>"
+            echo
+            echo '```hcl'
+            cat plan.txt
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Apply and invalidate CloudFront
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.14.0"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (deploy role)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: terraform init
+        run: terraform init
+
+      - name: terraform plan
+        run: terraform plan -no-color -out=tfplan
+
+      - name: terraform apply
+        run: terraform apply -no-color -auto-approve tfplan
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DISTRIBUTION_ID="$(terraform output -raw cloudfront_distribution_id)"
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query 'Invalidation.{Id:Id,Status:Status}' \
+            --output table
